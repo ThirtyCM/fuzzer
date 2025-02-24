@@ -114,10 +114,27 @@ int main(int argc, char* argv[]) {
     // Initialization
     ntry = 1;
     int running = 1;
-    //int cases = 0;  // test case being tested
+    int cases = 1;  // test case
 
+    printf("Begin fuzzing");
     while (running) {
-        running = 0;
+        struct tar_t head;
+        char content[1][BLOCK_SIZE];
+        switch (cases) {
+            // Testing non-ascii character in name
+            case 1:
+                memset(content[1],0,BLOCK_SIZE);
+                memset(&head,0,BLOCK_SIZE);
+                for (char c = 128; c < 138; c++) {
+                    printf(head.name,"file%c",c);
+                    createarchive(NAME,1,&head,content);
+                }
+                cases++;
+                break;
+            default:
+            printf("Stop fuzzing");    
+            running = 0;
+        }
     }
     
     return 0;
