@@ -2,6 +2,8 @@
 #include <string.h>
 
 #define BLOCK_SIZE 512
+#define MAGIC "ustar"
+#define VERSION "00"
 #define NAME "archive.tar"
 #define SUCCESS "success_"
 
@@ -28,8 +30,29 @@ struct tar_t
 
 // Path to the executable
 char path[26];
-// nth file tested
+// nth archive tested
 int ntry;
+
+/**
+ * Computes the checksum for a tar header and encode it on the header
+ * @param header the tar header
+ * @return the value of the checksum
+ */
+unsigned int calculate_checksum(struct tar_t *header) {
+    memset(header->chksum,' ',8);
+
+    unsigned int check = 0;
+    unsigned char* raw = (unsigned char*) header;
+    for (int i = 0; i < 512; i++) {
+        check += raw[i];
+    }
+
+    snprintf(header->chksum, sizeof(header->chksum),"%06o0",check);
+
+    header->chksum[6] = '\0';
+    header->chksum[7] = ' ';
+    return check;
+}
 
 /** 
  * Test if the archive crashes the extractor and saves it if it crashes
@@ -38,7 +61,7 @@ int ntry;
  *          0 if it doesn't crash
  *          1 if it crashes
 */
-int testarchive(char name[]) {
+int testarchive(char name[], int ntry) {
     char cmd[51];
     strncpy(cmd,path,26);
     strncat(cmd,"  ",1);
@@ -54,7 +77,7 @@ int testarchive(char name[]) {
         printf("No output\n");
     }
     if(strncmp(buf, "*** The program has crashed ***\n", 33)) {
-        printf("Not the crash message\n");
+        //printf("Not the crash message\n");
     } else {
         printf("Crash message\n");
         res = 1;
@@ -110,30 +133,63 @@ int main(int argc, char* argv[]) {
     // Getting path to the extractor
     strncpy(path,argv[1],25);
     path[26] = '\0';
-    
     // Initialization
     ntry = 1;
     int running = 1;
-    int cases = 1;  // test case
+    int cases = 2;  // test case
 
-    printf("Begin fuzzing");
+    printf("Begin fuzzing\n");
     while (running) {
         struct tar_t head;
         char content[1][BLOCK_SIZE];
         switch (cases) {
             // Testing non-ascii character in name
             case 1:
-                memset(content[1],0,BLOCK_SIZE);
+                memset(content[0],'E',BLOCK_SIZE-1);
+                content[0][BLOCK_SIZE-1] = '\0';
                 memset(&head,0,BLOCK_SIZE);
-                for (char c = 128; c < 138; c++) {
-                    printf(head.name,"file%c",c);
+                for (int c = 128; c < 256; c++) {
+                    // Create the header
+                    snprintf(head.name,100,"file%c.txt",(char) c);
+                    snprintf(head.mode,8,"0644");
+                    snprintf(head.uid,8,"01750");
+                    snprintf(head.gid,8,"01750");
+                    snprintf(head.size,12,"%011o",(unsigned int) 10280);
+                    head.typeflag = '0';
+                    snprintf(head.magic,6,MAGIC);
+                    strcpy(head.version,VERSION);
+                    snprintf(head.uname,32,"me");
+                    snprintf(head.gname,32,"me");
+                    calculate_checksum(&head);
                     createarchive(NAME,1,&head,content);
+                    testarchive(NAME,ntry);
                 }
                 cases++;
                 break;
+            // Testing typeflag = '1'
+            case 2 :
+                memset(content[0],'E',BLOCK_SIZE-1);
+                content[0][BLOCK_SIZE-1] = '\0';
+                memset(&head,0,BLOCK_SIZE);
+                snprintf(head.name,100,"file.txt");
+                snprintf(head.mode,8,"0644");
+                snprintf(head.uid,8,"01750");
+                snprintf(head.gid,8,"01750");
+                snprintf(head.size,12,"%011o",(unsigned int) 10280);
+                head.typeflag = '1';
+                snprintf(head.magic,6,MAGIC);
+                strcpy(head.version,VERSION);
+                snprintf(head.uname,32,"me");
+                snprintf(head.gname,32,"me");
+                calculate_checksum(&head);
+                createarchive(NAME,1,&head,content);
+                testarchive(NAME,ntry);
+                cases++;
+                break;
             default:
-            printf("Stop fuzzing");    
-            running = 0;
+                printf("Stop fuzzing\n");    
+                running = 0;
+                break;
         }
     }
     

@@ -9,3 +9,4 @@ fuzzer : fuzzer.c
 clean :
 	rm -f fuzzer
 	rm -f *.tar
+	rm -f *.txt
