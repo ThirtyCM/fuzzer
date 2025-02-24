@@ -61,7 +61,7 @@ unsigned int calculate_checksum(struct tar_t *header) {
  *          0 if it doesn't crash
  *          1 if it crashes
 */
-int testarchive(char name[], int ntry) {
+int testarchive(char name[]) {
     char cmd[51];
     strncpy(cmd,path,26);
     strncat(cmd,"  ",1);
@@ -92,6 +92,7 @@ int testarchive(char name[], int ntry) {
         sprintf(new,"%s%d.tar",SUCCESS,ntry);
         rename(name,new);
     }
+    ntry++;
     return res;
 }
 
@@ -162,7 +163,7 @@ int main(int argc, char* argv[]) {
                     snprintf(head.gname,32,"me");
                     calculate_checksum(&head);
                     createarchive(NAME,1,&head,content);
-                    testarchive(NAME,ntry);
+                    testarchive(NAME);
                 }
                 cases++;
                 break;
@@ -183,7 +184,7 @@ int main(int argc, char* argv[]) {
                 snprintf(head.gname,32,"me");
                 calculate_checksum(&head);
                 createarchive(NAME,1,&head,content);
-                testarchive(NAME,ntry);
+                testarchive(NAME);
                 cases++;
                 break;
             default:
