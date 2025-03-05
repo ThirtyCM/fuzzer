@@ -179,6 +179,26 @@ int main(int argc, char* argv[]) {
                 }
                 testarchive(NAME);
                 break;
+                
+            case 7:
+                printf("Testing non-ASCII characters in name field\n");
+                memset(content[0], 'X', BLOCK_SIZE - 1);
+                content[0][BLOCK_SIZE - 1] = '\0';
+                for (int c = 128; c < 256; c++) { // Nombres con caracteres fuera del ASCII estándar
+                    snprintf(head.name, 100, "file%c.txt", (char) c);
+                    snprintf(head.mode, 8, "0644");
+                    snprintf(head.uid, 8, "0001750");
+                    snprintf(head.gid, 8, "0001750");
+                    snprintf(head.size, 12, "%011o", (unsigned int) 1024);
+                    head.typeflag = '0';
+                    snprintf(head.magic, 6, MAGIC);
+                    strcpy(head.version, VERSION);
+                    calculate_checksum(&head);
+                    createarchive(NAME, 1, &head, content);
+                    testarchive(NAME);
+                }
+                break;
+
 
             default:
                 printf("Stopping fuzzing\n");
