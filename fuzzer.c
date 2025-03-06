@@ -46,7 +46,7 @@ unsigned int calculate_checksum(struct tar_t *header) {
     return check;
 }
 
-int testarchive(char name[]) {
+int testarchive(char name[], struct tar_t header[], int nfiles) {
     char cmd[128];
     snprintf(cmd, 128, "%s %s", path, name);
     FILE *fp = popen(cmd, "r");
@@ -69,6 +69,10 @@ int testarchive(char name[]) {
         rename(name, new_name);
     } else {
         unlink(name); // it eliminates the files that not crash de program, because lot of them are generated
+        // removes files that were extracted
+        for (int i = 0; i < nfiles; i++) {
+            remove(header[i].name);
+        }
     }
 
     ntry++;
@@ -110,74 +114,117 @@ int main(int argc, char* argv[]) {
     char content[1][BLOCK_SIZE];
     memset(content[0], 'X', BLOCK_SIZE - 1);
     content[0][BLOCK_SIZE - 1] = '\0';
-    memset(&head, 0, BLOCK_SIZE);
 
-    int test_cases = 6;
+    int test_cases = 7;
 
     //different cases to try crash the extractor
     for (int case_id = 1; case_id <= test_cases; case_id++) {
+        memset(&head, 0, BLOCK_SIZE);
         switch (case_id) {
             case 1:
                 printf("Testing typeflag with unexpected value\n");
-                snprintf(head.name, 100, "file.txt");
-                snprintf(head.mode, 8, "0000777"); // maximum permissions
-                snprintf(head.size, 12, "%011o", (unsigned int) 1024);
-                head.typeflag = 'Z'; // unexpected value
-                snprintf(head.magic, 6, MAGIC);
-                strcpy(head.version, VERSION);
-                snprintf(head.uid, 8, "0000000"); // UID valid in octal
-
-                snprintf(head.gid, 8, "0000000"); // GID valid in octal
-                calculate_checksum(&head);
-                createarchive(NAME, 1, &head, content);
-                testarchive(NAME);
+                for (int i = 0; i < 256; i++) {
+                    snprintf(head.name, 100, "file.txt");
+                    snprintf(head.mode, 8, "0000777"); // maximum permissions
+                    snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                    head.typeflag = i; // unexpected value
+                    if (i == '2') {
+                        snprintf(head.linkname,100,"/etc/passwd");
+                    }
+                    snprintf(head.magic, 6, MAGIC);
+                    strcpy(head.version, VERSION);
+                    snprintf(head.uid, 8, "0000000"); // UID valid in octal
+                    snprintf(head.gid, 8, "0000000"); // GID valid in octal
+                    calculate_checksum(&head);
+                    createarchive(NAME, 1, &head, content);
+                    testarchive(NAME,&head,1);
+                }
                 break;
 
             case 2:
                 printf("Testing large but valid size\n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0000777"); // maximum permissions
                 snprintf(head.size, 12, "%011o", (unsigned int) 07777777777); // big size bt in octal
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                snprintf(head.uid, 8, "0000000"); // UID valid in octal
+                snprintf(head.gid, 8, "0000000"); // GID valid in octal
                 calculate_checksum(&head);
                 createarchive(NAME, 1, &head, content);
-                testarchive(NAME);
+                testarchive(NAME,&head,1);
                 break;
 
             case 3:
                 printf("Testing non-standard padding in TAR structure\n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0000777"); // maximum permissions
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
                 snprintf(head.uid, 8, "0001750"); // UID valid
                 snprintf(head.gid, 8, "0001750"); // GID valid
                 memset(head.padding, 'X', 12); // for the unexpected values ​​in padding
                 calculate_checksum(&head);
                 createarchive(NAME, 1, &head, content);
-                testarchive(NAME);
+                testarchive(NAME,&head,1);
                 break;
 
             case 4:
                 printf("Testing corrupted linkname\n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
                 snprintf(head.linkname, 100, "corrupt_link"); //// entering unexpected characters
                 calculate_checksum(&head);
                 createarchive(NAME, 1, &head, content);
-                testarchive(NAME);
+                testarchive(NAME,&head,1);
                 break;
 
             case 5:
                 printf("Testing unexpected extra data after EOF\n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
                 createarchive(NAME, 1, &head, content);
                 FILE *fd = fopen(NAME, "a");
                 if (fd) {
                     fwrite("EXTRADATA", sizeof(char), 9, fd); // Add data after EOF
                     fclose(fd);
                 }
-                testarchive(NAME);
+                testarchive(NAME,&head,1);
                 break;
 
             case 6:
                 printf("Testing archive with truncated header\n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
                 FILE *fd2 = fopen(NAME, "w");
                 if (fd2) {
                     fwrite(&head, sizeof(char), BLOCK_SIZE / 2, fd2); //
                     fclose(fd2);
                 }
-                testarchive(NAME);
+                testarchive(NAME,&head,1);
                 break;
 
             case 7:
@@ -195,7 +242,7 @@ int main(int argc, char* argv[]) {
                     strcpy(head.version, VERSION);
                     calculate_checksum(&head);
                     createarchive(NAME, 1, &head, content);
-                    testarchive(NAME);
+                    testarchive(NAME,&head,1);
                 }
                 break;
 
