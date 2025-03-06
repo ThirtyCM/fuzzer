@@ -260,8 +260,24 @@ int main(int argc, char* argv[]) {
                 break;
 
             case 9 :
-                printf("Testing filename containing /bin/sh\n");
-                snprintf(head.name, 100, "/bin/sh");
+                printf("Testing symlink to /bin/sh\n");
+                snprintf(head.name, 100, "myshell");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '2';
+                snprintf(head.linkname,100,"/bin/sh");
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
+                createarchive(NAME, 1, &head, content);
+                testarchive(NAME,&head,1);
+                break;
+
+            case 10 :
+                printf("Testing content of file containing /bin/sh\n");
+                snprintf(head.name, 100, "myshell");
                 snprintf(head.mode, 8, "0644");
                 snprintf(head.uid, 8, "0001750");
                 snprintf(head.gid, 8, "0001750");
@@ -270,10 +286,33 @@ int main(int argc, char* argv[]) {
                 snprintf(head.magic, 6, MAGIC);
                 strcpy(head.version, VERSION);
                 calculate_checksum(&head);
+                memset(content[0], '\0', BLOCK_SIZE);
+                snprintf(content[0],BLOCK_SIZE,"Hello world! ; /bin/sh");
                 createarchive(NAME, 1, &head, content);
                 testarchive(NAME,&head,1);
                 break;
 
+            case 11 :
+                printf("Testing no EOF blocks \n");
+                snprintf(head.name, 100, "file.txt");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
+                FILE *fd3 = fopen(NAME, "w");
+                if (fd3) {
+                    fwrite(&head, sizeof(char), BLOCK_SIZE, fd3);
+                    memset(content[0],'E',100);
+                    fwrite(content[0],sizeof(char),BLOCK_SIZE, fd3);
+                    fclose(fd3);
+                }
+                testarchive(NAME,&head,1);
+                break;
+            
             default:
                 printf("Stopping fuzzing\n");
                 return 0;
