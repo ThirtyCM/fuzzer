@@ -115,10 +115,8 @@ int main(int argc, char* argv[]) {
     memset(content[0], 'X', BLOCK_SIZE - 1);
     content[0][BLOCK_SIZE - 1] = '\0';
 
-    int test_cases = 7;
-
     //different cases to try crash the extractor
-    for (int case_id = 1; case_id <= test_cases; case_id++) {
+    for (int case_id = 1; case_id > 0; case_id++) {
         memset(&head, 0, BLOCK_SIZE);
         switch (case_id) {
             case 1:
@@ -246,6 +244,35 @@ int main(int argc, char* argv[]) {
                 }
                 break;
 
+            case 8 :
+                printf("Testing path in filename\n");
+                snprintf(head.name, 100, "../file.txt");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
+                createarchive(NAME, 1, &head, content);
+                testarchive(NAME,&head,1);
+                break;
+
+            case 9 :
+                printf("Testing filename containing /bin/sh\n");
+                snprintf(head.name, 100, "/bin/sh");
+                snprintf(head.mode, 8, "0644");
+                snprintf(head.uid, 8, "0001750");
+                snprintf(head.gid, 8, "0001750");
+                snprintf(head.size, 12, "%011o", (unsigned int) BLOCK_SIZE-1);
+                head.typeflag = '0';
+                snprintf(head.magic, 6, MAGIC);
+                strcpy(head.version, VERSION);
+                calculate_checksum(&head);
+                createarchive(NAME, 1, &head, content);
+                testarchive(NAME,&head,1);
+                break;
 
             default:
                 printf("Stopping fuzzing\n");
